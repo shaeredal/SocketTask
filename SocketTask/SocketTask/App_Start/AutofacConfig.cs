@@ -5,6 +5,9 @@ using Autofac;
 using Autofac.Integration.Mvc;
 using Autofac.Integration.WebApi;
 using DAL;
+using DAL.Models;
+using DAL.Repositories;
+using DAL.Repositories.Interfaces;
 
 namespace SocketTask
 {
@@ -48,6 +51,9 @@ namespace SocketTask
         private static void RegisterDb(ContainerBuilder builder)
         {
             builder.RegisterType<MongoDbConnector>().AsSelf().InstancePerDependency();
+            builder.RegisterGeneric(typeof(GenericRepository<>))
+                .As(typeof(IGenericRepository<>))
+                .InstancePerDependency();
         }
     }
 }

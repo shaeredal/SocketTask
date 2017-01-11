@@ -8,7 +8,8 @@ namespace DAL
         public static void Connect(string connectionString)
         {
             var client = new MongoClient(connectionString);
-            database = client.GetDatabase("test");
+            var con = new MongoUrlBuilder(connectionString);
+            database = client.GetDatabase(con.DatabaseName);
         }
 
         public IMongoDatabase GetDatabase()
