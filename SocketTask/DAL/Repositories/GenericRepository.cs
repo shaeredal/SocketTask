@@ -1,4 +1,6 @@
 ﻿
+
+using System;
 using System.Collections.Generic;
 using DAL.Models;
 using DAL.Repositories.Interfaces;
@@ -10,6 +12,7 @@ namespace DAL.Repositories
     public class GenericRepository<TEntity> : IGenericRepository<TEntity> where TEntity : EntityBase, new()
     {
         private IMongoCollection<TEntity> collection;
+
         public GenericRepository(MongoDbConnector dbConnector)
         {
             collection = dbConnector.GetDatabase().GetCollection<TEntity>(nameof(TEntity));
@@ -17,37 +20,62 @@ namespace DAL.Repositories
 
         public TEntity Get(string id)
         {
-            return collection.Find(x => x.Id == id ).FirstOrDefault();
-        }
-
-        public TEntity Find(TEntity entity)
-        {
-            throw new System.NotImplementedException();
+            return collection.Find(x => x.Id == id).FirstOrDefault();
         }
 
         public IEnumerable<TEntity> GetAll()
         {
-            throw new System.NotImplementedException();
+            return collection.Find(new BsonDocument()).ToList();
         }
 
-        public TEntity Add(TEntity entity)
+        public bool Add(TEntity entity)
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                if (string.IsNullOrEmpty(entity.Id))
+                {
+                    entity.Id = ObjectId.GenerateNewId().ToString();
+                }
+                collection.InsertOne(entity);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+
         }
 
-        public TEntity Update(TEntity entity)
+        public bool Update(TEntity entity)
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                collection.ReplaceOne(Builders<TEntity>.Filter.Eq("_id", entity.Id), entity);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+            
         }
 
         public bool Remove(TEntity entity)
         {
-            throw new System.NotImplementedException();
+            return Remove(entity.Id);
         }
 
         public bool Remove(string id)
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                collection.DeleteOne(x => x.Id == id);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }
