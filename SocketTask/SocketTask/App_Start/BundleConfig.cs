@@ -23,6 +23,17 @@ namespace SocketTask
             bundles.Add(new StyleBundle("~/Content/css").Include(
                       "~/Content/bootstrap.css",
                       "~/Content/site.css"));
+
+            bundles.Add(new ScriptBundle("~/bundles/angular")
+                .Include("~/Scripts/angular.js")
+                .Include("~/Scripts/angular-route.js")
+                .Include("~/Scripts/angular-cookies.js")
+                .Include("~/Scripts/angular-ui/ui-bootstrap.js")
+                .Include("~/Scripts/angular-ui/ui-bootstrap-tpls.js"));
+
+            bundles.Add(new ScriptBundle("~/bundles/app")
+                .Include("~/app/app.js")
+                .Include("~/app/controllers/mainController.js"));
         }
     }
 }

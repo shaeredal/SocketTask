@@ -1,9 +1,23 @@
-﻿<div ng-app="" class="row">
-    <input ng-model="test">
-    {{test}}
-</div>
+﻿<!DOCTYPE html>
+<html ng-app="socketTask">
+<head>
+    <meta charset="utf-8" />
+@*    <base href="/">*@
+    <title>SocketTask</title>
+    @Styles.Render("~/Content/css")
+    @Scripts.Render("~/bundles/modernizr")
+</head>
+<body>
 
-@section scripts
-{
-    <script src="~/Scripts/angular.js"></script>
-}
+    <ng-view></ng-view>
+       
+    @Scripts.Render("~/bundles/jquery")
+    @Scripts.Render("~/bundles/bootstrap")
+    @Scripts.Render("~/bundles/angular")
+    @Scripts.Render("~/bundles/app")
+    <script src="~/Scripts/socketTask.js"></script>
+</body>
+</html>
+
+    
+
