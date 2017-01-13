@@ -33,7 +33,8 @@ namespace SocketTask
 
             bundles.Add(new ScriptBundle("~/bundles/app")
                 .Include("~/app/app.js")
-                .Include("~/app/controllers/mainController.js"));
+                .Include("~/app/controllers/mainController.js")
+                .Include("~/app/webSockets/webSocketsModule.js"));
         }
     }
 }

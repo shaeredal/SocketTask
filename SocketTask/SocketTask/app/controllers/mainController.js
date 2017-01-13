@@ -1,6 +1,6 @@
 ﻿'use strict';
-var main = angular.module('socketTask.main', []);
+var main = angular.module('socketTask.main', ['webSockets']);
 
 main.controller('mainController', function ($scope){
-    
+
 })

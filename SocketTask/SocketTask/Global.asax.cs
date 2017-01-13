@@ -4,6 +4,7 @@ using System.Web.Mvc;
 using System.Web.Optimization;
 using System.Web.Routing;
 using DAL;
+using SocketLib;
 
 namespace SocketTask
 {
@@ -18,6 +19,7 @@ namespace SocketTask
             BundleConfig.RegisterBundles(BundleTable.Bundles);
             AutofacConfig.RegisterDependencies();
             MongoDbConnector.Connect(ConfigurationManager.ConnectionStrings["MongoDb"].ConnectionString);
+            WebSocketServer.Create();
         }
     }
 }
