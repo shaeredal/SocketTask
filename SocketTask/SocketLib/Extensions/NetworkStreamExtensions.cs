@@ -1,7 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
+using SocketLib.Models;
 
 namespace SocketLib.Extensions
 {
@@ -14,13 +18,17 @@ namespace SocketLib.Extensions
             stream.Write(result.ToArray(), 0, result.Count);
         }
 
-        public static string ReceiveMessage(this TcpClient client)
+        public static MessageModel ReceiveMessage(this TcpClient client)
         {
             var stream = client.GetStream();
             while (!stream.DataAvailable) ;
             var bytes = new byte[client.Available];
             stream.Read(bytes, 0, bytes.Length);
-            return DecodeMessage(bytes);
+            return new MessageModel
+            {
+                Disconnected = bytes[0] == 0x88,
+                Message = DecodeMessage(bytes)
+            };
         }
 
         private static List<byte> EncodeMessage(string message)
@@ -83,6 +91,41 @@ namespace SocketLib.Extensions
             }
 
             return Encoding.UTF8.GetString(decoded);
+        }
+
+        public static string Handshake(this TcpClient client)
+        {
+            var stream = client.GetStream();
+            while (true)
+            {
+                while (!stream.DataAvailable) ;
+
+                var bytes = new byte[client.Available];
+                stream.Read(bytes, 0, bytes.Length);
+                var data = Encoding.UTF8.GetString(bytes);
+
+                if (new Regex("^GET").IsMatch(data))
+                {
+                    var hubName = new Regex(@"(?<=^GET) \/(.+) (?=HTTP)").Match(data).Groups[1].Value.Trim();
+                    var key = Convert.ToBase64String(
+                        SHA1.Create().ComputeHash(
+                            Encoding.UTF8.GetBytes(
+                                new Regex("Sec-WebSocket-Key: (.*)").Match(data).Groups[1].Value.Trim() +
+                                "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+                            )
+                        )
+                    );
+                    var response = Encoding.UTF8.GetBytes(
+                            "HTTP/1.1 101 Switching Protocols" + Environment.NewLine
+                            + "Connection: Upgrade" + Environment.NewLine
+                            + "Upgrade: websocket" + Environment.NewLine
+                            + "Sec-WebSocket-Accept: " + key + Environment.NewLine
+                            + Environment.NewLine);
+
+                    stream.Write(response, 0, response.Length);
+                    return hubName;
+                }
+            }
         }
     }
 }

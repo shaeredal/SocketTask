@@ -59,7 +59,7 @@ namespace SocketLib
 
         private void AddClient(TcpClient client)
         {
-            var hubName = Handshake(client);
+            var hubName = client.Handshake();
             var id = Guid.NewGuid().ToString();
             var isSet = SetId(client, id);
 
@@ -80,41 +80,18 @@ namespace SocketLib
             {
                 clients.Add(id, clientModel);
             }
-            var listenClientTask = new Task(() => ListenClient(client));
+            var listenClientTask = new Task(() => ListenClient(clientModel));
             listenClientTask.Start();
         }
 
-        private string Handshake(TcpClient client)
+        private void RemoveClient(ClientModel client)
         {
-            var stream = client.GetStream();
-            while (true)
+            client.Client.Close();
+            lock (locker)
             {
-                while (!stream.DataAvailable) ;
-
-                var bytes = new byte[client.Available];
-                stream.Read(bytes, 0, bytes.Length);
-                var data = Encoding.UTF8.GetString(bytes);
-
-                if (new Regex("^GET").IsMatch(data))
+                if (clients.ContainsKey(client.Id))
                 {
-                    var hubName = new Regex(@"(?<=^GET) \/(.+) (?=HTTP)").Match(data).Groups[1].Value.Trim();
-                    var key = Convert.ToBase64String(
-                        SHA1.Create().ComputeHash(
-                            Encoding.UTF8.GetBytes(
-                                new Regex("Sec-WebSocket-Key: (.*)").Match(data).Groups[1].Value.Trim() +
-                                "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-                            )
-                        )
-                    );
-                    var response = Encoding.UTF8.GetBytes(
-                            "HTTP/1.1 101 Switching Protocols" + Environment.NewLine
-                            + "Connection: Upgrade" + Environment.NewLine
-                            + "Upgrade: websocket" + Environment.NewLine
-                            + "Sec-WebSocket-Accept: " + key + Environment.NewLine
-                            + Environment.NewLine);
-
-                    stream.Write(response, 0, response.Length);
-                    return hubName;
+                    clients.Remove(client.Id);
                 }
             }
         }
@@ -123,12 +100,12 @@ namespace SocketLib
         {
             var jsonId = $"{{\"setId\": \"{id}\"}}";
             client.SendMessage(jsonId);
-            var responseJson = client.ReceiveMessage();
+            var response = client.ReceiveMessage();
 
-            SetIdResponse responseObj;
+            SetIdResponseModel responseObj;
             try
             {
-                responseObj = JsonConvert.DeserializeObject<SetIdResponse>(responseJson);
+                responseObj = JsonConvert.DeserializeObject<SetIdResponseModel>(response.Message);
             }
             catch (Exception)
             {
@@ -142,17 +119,21 @@ namespace SocketLib
             return false;
         }
 
-        private void ListenClient(TcpClient client)
+        private void ListenClient(ClientModel client)
         {
             while (true)
             {
-                var result = client.ReceiveMessage();
-                ProcessClientRequest(result);
-                //TODO: Close connection and remove client on close 
+                var result = client.Client.ReceiveMessage();
+                if (result.Disconnected)
+                {
+                    break;
+                }
+                ProcessClientRequest(client, result.Message);
             }
+            RemoveClient(client);
         }
 
-        private void ProcessClientRequest(string requestString)
+        private void ProcessClientRequest(ClientModel client, string requestString)
         {
             //TODO: Implement
         }

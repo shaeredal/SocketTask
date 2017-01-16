@@ -46,7 +46,8 @@
   <ItemGroup>
     <Compile Include="Models\ClientModel.cs" />
     <Compile Include="Extensions\NetworkStreamExtensions.cs" />
-    <Compile Include="Models\SetIdResponse.cs" />
+    <Compile Include="Models\MessageModel.cs" />
+    <Compile Include="Models\SetIdResponseModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="WebSocketServer.cs" />
   </ItemGroup>

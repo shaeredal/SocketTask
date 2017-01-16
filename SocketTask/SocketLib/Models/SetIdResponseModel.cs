@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace SocketLib.Models
 {
-    public class SetIdResponse
+    public class SetIdResponseModel
     {
         public string Id { get; set; }
         public string Result { get; set; }
