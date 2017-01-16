@@ -14,8 +14,21 @@ angular.module('webSockets', [])
     };
 
     socket.onmessage = function (event) {
-        alert("Get data: " + event.data);
+        processMessage(event.data);
     };
+
+    function processMessage(message) {
+        var parsedMessage = JSON.parse(message);
+        if (parsedMessage.setId) {
+            var id = parsedMessage.setId;
+            localStorage.setItem('webSocketAppId', id);
+            var response = { Result: "IsSet", Id: id }
+            socket.send(JSON.stringify(response));
+            alert(localStorage.getItem('webSocketAppId', id));
+        } else {
+            alert(message);
+        }
+    }
 
     $timeout(function() {
         var button = document.getElementById("test-button");

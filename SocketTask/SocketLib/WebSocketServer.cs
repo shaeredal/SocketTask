@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using SocketLib.Extensions;
+using SocketLib.Models;
 
 namespace SocketLib
 {
@@ -17,8 +19,8 @@ namespace SocketLib
         private TcpListener listener;
         private Task listenTask;
 
-        private List<TcpClient> clients;
-        private object locker = new object();
+        private Dictionary<string, ClientModel> clients;
+        private readonly object locker = new object();
 
         public static bool Create()
         {
@@ -31,6 +33,11 @@ namespace SocketLib
             return true;
         }
 
+        private WebSocketServer()
+        {
+            clients = new Dictionary<string, ClientModel>();
+        }
+
         private void Start()
         {
             listener = new TcpListener(IPAddress.Parse("127.0.0.1"), 8080);
@@ -40,27 +47,44 @@ namespace SocketLib
             listenTask.Start();
         }
 
-        private void AddClient(TcpClient client)
-        {
-            lock (locker) { 
-                clients.Add(client);
-            }
-        }
-
         private void Listen()
         {
             while (true)
             {
                 var client = listener.AcceptTcpClient();
-                var processTask = new Task(() => Handshake(client));
+                var processTask = new Task(() => AddClient(client));
                 processTask.Start();
-
-                //                var connectionTask = new Task(() => AddClient(client));
-                //                connectionTask.Start();
             }
         }
 
-        private void Handshake(TcpClient client)
+        private void AddClient(TcpClient client)
+        {
+            var hubName = Handshake(client);
+            var id = Guid.NewGuid().ToString();
+            var isSet = SetId(client, id);
+
+            if (!isSet)
+            {
+                client.Close();
+                return;
+            };
+
+            var clientModel = new ClientModel
+            {
+                Id = id,
+                HubName = hubName,
+                Client = client,
+            };
+
+            lock (locker)
+            {
+                clients.Add(id, clientModel);
+            }
+            var listenClientTask = new Task(() => ListenClient(client));
+            listenClientTask.Start();
+        }
+
+        private string Handshake(TcpClient client)
         {
             var stream = client.GetStream();
             while (true)
@@ -73,6 +97,7 @@ namespace SocketLib
 
                 if (new Regex("^GET").IsMatch(data))
                 {
+                    var hubName = new Regex(@"(?<=^GET) \/(.+) (?=HTTP)").Match(data).Groups[1].Value.Trim();
                     var key = Convert.ToBase64String(
                         SHA1.Create().ComputeHash(
                             Encoding.UTF8.GetBytes(
@@ -89,116 +114,47 @@ namespace SocketLib
                             + Environment.NewLine);
 
                     stream.Write(response, 0, response.Length);
-
-
-                    //TODO: Remove
-                    var testMessage = "azazazazazqweqweqweqweqweqweqweqweqweqweqqqqqqqweqwerqwerqwerqwer" +
-                                      "qwerqwrqwerqwerqwerqwerqwerqwerqwerqwerqwerwqerqwerwqrqwrqwerqwer" +
-                                      "qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerwqerwqerqwerw" +
-                                      "qerwqerwqerqwerqwerwqerqwrqerqwerwerqwerqwerqwerqwerqwerqerqerqwer";
-                    SendMessage(stream, testMessage);
-                    ListenClient(client);
-
-                    return;
+                    return hubName;
                 }
             }
         }
 
-        private void SendMessage(NetworkStream stream, string message)
+        private bool SetId(TcpClient client, string id)
         {
-            var result = EncodeMessage(message);
-            stream.Write(result.ToArray(), 0, result.Count);
-        }
+            var jsonId = $"{{\"setId\": \"{id}\"}}";
+            client.SendMessage(jsonId);
+            var responseJson = client.ReceiveMessage();
 
-        private List<byte> EncodeMessage(string message)
-        {
-            var bytesRaw = Encoding.UTF8.GetBytes(message);
-
-            var result = new List<byte>();
-            result.Add(0x81);
-
-            if (bytesRaw.Length <= 125)
+            SetIdResponse responseObj;
+            try
             {
-                result.Add((byte)bytesRaw.Length);
+                responseObj = JsonConvert.DeserializeObject<SetIdResponse>(responseJson);
             }
-            else if (bytesRaw.Length >= 126 && bytesRaw.Length <= 65535)
+            catch (Exception)
             {
-                result.Add(126);
-                result.Add((byte)((bytesRaw.Length >> 8) & 255));
-                result.Add((byte)((bytesRaw.Length) & 255));
-            }
-            else
-            {
-                result.Add(127);
-                result.Add((byte)((bytesRaw.Length >> 56) & 255));
-                result.Add((byte)((bytesRaw.Length >> 48) & 255));
-                result.Add((byte)((bytesRaw.Length >> 40) & 255));
-                result.Add((byte)((bytesRaw.Length >> 32) & 255));
-                result.Add((byte)((bytesRaw.Length >> 24) & 255));
-                result.Add((byte)((bytesRaw.Length >> 16) & 255));
-                result.Add((byte)((bytesRaw.Length >> 8) & 255));
-                result.Add((byte)((bytesRaw.Length) & 255));
+                return false;
             }
 
-            result.AddRange(bytesRaw);
-
-            return result;
-        }
-
-        private string DecodeMessage(byte[] bytes)
-        {
-            var secondByte = bytes[1];
-            var dataLength = secondByte & 127;
-            var indexFirstMask = 2;
-
-            if (dataLength == 126)
+            if (responseObj.Result == "IsSet" && responseObj.Id == id)
             {
-                indexFirstMask = 4;
+                return true;
             }
-            else if (dataLength == 127)
-            {
-                indexFirstMask = 10;
-            }
-
-            var masks = bytes.Skip(indexFirstMask).Take(4).ToList();
-            var indexFirstDataByte = indexFirstMask + 4;
-            var decoded = new byte[bytes.Length - indexFirstDataByte];
-            
-            for (int i = indexFirstDataByte,  j = 0; i < bytes.Length; i++, j++)
-            {
-                decoded[j] = (byte)(bytes[i] ^ masks[j % 4]);
-            }
-
-            return Encoding.UTF8.GetString(decoded);
+            return false;
         }
 
         private void ListenClient(TcpClient client)
         {
-            var stream = client.GetStream();
             while (true)
             {
-                while (!stream.DataAvailable) ;
-                var bytes = new byte[client.Available];
-                stream.Read(bytes, 0, bytes.Length);
-                var result = DecodeMessage(bytes);
+                var result = client.ReceiveMessage();
+                ProcessClientRequest(result);
                 //TODO: Close connection and remove client on close 
             }
         }
 
-        //        public static bool Stop()
-        //        {
-        //            if (!IsWorking)
-        //            {
-        //                return false;
-        //            }
-        //            instance.StopServer();
-        //            instance = null;
-        //            return true;
-        //        }
-        //
-        //        private void StopServer()
-        //        {
-        //            isListen = false;
-        //        }
+        private void ProcessClientRequest(string requestString)
+        {
+            //TODO: Implement
+        }
     }
 }
