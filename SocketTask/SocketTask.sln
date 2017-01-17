@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketTask", "SocketTask\SocketTask.csproj", "{FF2A28E7-C089-4D12-A241-4159F93512CE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketTask.Web", "SocketTask\SocketTask.Web.csproj", "{FF2A28E7-C089-4D12-A241-4159F93512CE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DAL", "DAL\DAL.csproj", "{8CBB213A-192B-406D-A90E-6B8CA25A4BE1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketTask.DAL", "DAL\SocketTask.DAL.csproj", "{8CBB213A-192B-406D-A90E-6B8CA25A4BE1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketLib", "SocketLib\SocketLib.csproj", "{72DF5609-7A8B-4BA8-A54C-293A32419C18}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketTask.SocketLib", "SocketLib\SocketTask.SocketLib.csproj", "{72DF5609-7A8B-4BA8-A54C-293A32419C18}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
