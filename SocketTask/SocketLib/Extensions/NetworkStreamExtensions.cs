@@ -107,7 +107,7 @@ namespace SocketLib.Extensions
                 if (new Regex("^GET").IsMatch(data))
                 {
                     //TODO: Rewrite to make able to use several hubs with single connection
-                    var hubName = new Regex(@"(?<=^GET) \/(.+) (?=HTTP)").Match(data).Groups[1].Value.Trim();
+                    var uri = new Regex(@"(?<=^GET) \/(.+) (?=HTTP)").Match(data).Groups[1].Value.Trim();
                     var key = Convert.ToBase64String(
                         SHA1.Create().ComputeHash(
                             Encoding.UTF8.GetBytes(
@@ -124,7 +124,7 @@ namespace SocketLib.Extensions
                             + Environment.NewLine);
 
                     stream.Write(response, 0, response.Length);
-                    return hubName;
+                    return uri;
                 }
             }
         }

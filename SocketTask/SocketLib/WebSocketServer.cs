@@ -76,6 +76,7 @@ namespace SocketLib
                     hubs.Add(hubType.Name.ToLowerInvariant(), (SocketHub)getInstance.Invoke(null, null));
                 }
             }
+            //TODO: Create hubs script
         }
 
         private void ListenConnections()
@@ -83,28 +84,15 @@ namespace SocketLib
             while (true)
             {
                 var client = listener.AcceptTcpClient();
-                var processTask = new Task(() => ConnectClient(client));
+                var processTask = new Task(() => AddClient(client));
                 processTask.Start();
             }
-        }
-
-        private void ConnectClient(TcpClient client)
-        {
-            //TODO: Rewrite to make able to use several hubs with single connection
-            var hubName = client.Handshake();
-            if (!hubs.ContainsKey(hubName))
-            {
-                client.Close();
-                return;
-            }
-            var hub = hubs[hubName];
-
-            AddClient(client);
         }
 
         //TODO:Refactor
         private void AddClient(TcpClient client)
         {
+            client.Handshake();
             string id;
             do
             {
@@ -163,20 +151,25 @@ namespace SocketLib
                 {
                     break;
                 }
-                ProcessClientRequest(client, result.Message);
+                new Task(() => ProcessRequest(client, result.Message)).Start();
             }
             RemoveClient(client);
         }
 
-        private void ProcessClientRequest(ClientModel client, string requestString)
+        private void ProcessRequest(ClientModel client, string request)
         {
-            //TODO: Implement
-            //TODO: Remove
-            client.Client.SendMessage(JsonConvert.SerializeObject(new CallFunctonModel
+            try
             {
-                callFunction = "test",
-                parameters = new object[] { "Hello, World!", 42, requestString }
-            }));
+                var callFunctionModel = JsonConvert.DeserializeObject<CallFunctonModel>(request);
+                if (!string.IsNullOrEmpty(callFunctionModel.hubName) && hubs.ContainsKey(callFunctionModel.hubName.ToLowerInvariant()))
+                {
+                    hubs[callFunctionModel.hubName].ProcessRequest(client, callFunctionModel);
+                }
+            }
+            catch
+            {
+                // ignored
+            }
         }
 
         private void RemoveClient(ClientModel client)
