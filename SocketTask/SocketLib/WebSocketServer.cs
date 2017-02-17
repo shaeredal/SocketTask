@@ -16,7 +16,7 @@ namespace SocketLib
     {
         private static WebSocketServer instance;
 
-        //private Dictionary<string, ClientModel> clients;
+        private Dictionary<string, ClientModel> clients;
         private Dictionary<string, SocketHub> hubs;
 
         private TcpListener listener;
@@ -34,19 +34,20 @@ namespace SocketLib
             return true;
         }
 
-//        public static ClientModel GetClient(string Id)
-//        {
-//            return instance == null ? null : instance.GetClient(Id);
-//        }
+        public static ClientModel GetClient(string id)
+        {
+            return instance?.FindClient(id);
+        }
 
         private WebSocketServer()
         {
-//            clients = new Dictionary<string, ClientModel>();
-            hubs = new Dictionary<string, Hub.SocketHub>();
+            clients = new Dictionary<string, ClientModel>();
+            hubs = new Dictionary<string, SocketHub>();
         }
 
         private void Start()
         {
+            //TODO: Make more flexible (remove hardcode)
             listener = new TcpListener(IPAddress.Parse("127.0.0.1"), 8080);
             listener.Start();
 
@@ -59,7 +60,7 @@ namespace SocketLib
         private void FindHubs()
         {
             var hubTypes = new List<Type>();
-            foreach(var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 hubTypes.AddRange(assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(SocketHub))));
             }
@@ -72,7 +73,7 @@ namespace SocketLib
                     {
                         throw new Exception("Two Hubs must not share the same name");
                     }
-                    hubs.Add(hubType.Name.ToLowerInvariant() ,(SocketHub)getInstance.Invoke(null, null));
+                    hubs.Add(hubType.Name.ToLowerInvariant(), (SocketHub)getInstance.Invoke(null, null));
                 }
             }
         }
@@ -82,13 +83,14 @@ namespace SocketLib
             while (true)
             {
                 var client = listener.AcceptTcpClient();
-                var processTask = new Task(() => AddClient(client));
+                var processTask = new Task(() => ConnectClient(client));
                 processTask.Start();
             }
         }
 
-        private void AddClient(TcpClient client)
+        private void ConnectClient(TcpClient client)
         {
+            //TODO: Rewrite to make able to use several hubs with single connection
             var hubName = client.Handshake();
             if (!hubs.ContainsKey(hubName))
             {
@@ -97,7 +99,106 @@ namespace SocketLib
             }
             var hub = hubs[hubName];
 
-            hub.AddClient(client);
+            AddClient(client);
+        }
+
+        //TODO:Refactor
+        private void AddClient(TcpClient client)
+        {
+            string id;
+            do
+            {
+                id = Guid.NewGuid().ToString();
+            } while (clients.ContainsKey(id));
+
+            if (!SetId(client, id))
+            {
+                client.Close();
+                return;
+            };
+
+            var clientModel = new ClientModel
+            {
+                Id = id,
+                Client = client,
+            };
+            lock (locker)
+            {
+                clients.Add(id, clientModel);
+            }
+            var listenClientTask = new Task(() => ListenClient(clientModel));
+            listenClientTask.Start();
+        }
+
+        private bool SetId(TcpClient client, string id)
+        {
+            //TODO: Make better or something
+            var jsonId = $"{{\"setId\": \"{id}\"}}";
+            client.SendMessage(jsonId);
+            var response = client.ReceiveMessage();
+
+            SetIdResponseModel responseObj;
+            try
+            {
+                responseObj = JsonConvert.DeserializeObject<SetIdResponseModel>(response.Message);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+            if (responseObj.Result == "IsSet" && responseObj.Id == id)
+            {
+                return true;
+            }
+            return false;
+        }
+
+        private void ListenClient(ClientModel client)
+        {
+            while (true)
+            {
+                var result = client.Client.ReceiveMessage();
+                if (result.Disconnected)
+                {
+                    break;
+                }
+                ProcessClientRequest(client, result.Message);
+            }
+            RemoveClient(client);
+        }
+
+        private void ProcessClientRequest(ClientModel client, string requestString)
+        {
+            //TODO: Implement
+            //TODO: Remove
+            client.Client.SendMessage(JsonConvert.SerializeObject(new CallFunctonModel
+            {
+                callFunction = "test",
+                parameters = new object[] { "Hello, World!", 42, requestString }
+            }));
+        }
+
+        private void RemoveClient(ClientModel client)
+        {
+            client.Client.Close();
+            lock (locker)
+            {
+                if (clients.ContainsKey(client.Id))
+                {
+                    clients.Remove(client.Id);
+                }
+            }
+        }
+
+        private ClientModel FindClient(string id)
+        {
+            ClientModel result;
+            lock (locker)
+            {
+                result = clients.ContainsKey(id) ? clients[id] : null;
+            }
+            return result;
         }
     }
 }

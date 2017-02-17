@@ -43913,7 +43913,7 @@ angular.scenario.ObjectModel.prototype.getSpec = function(id) {
 /**
  * A single it block.
  *
- * @param {string} id Id of the spec
+ * @param {string} id id of the spec
  * @param {string} name Name of the spec
  * @param {Array<string>=} definitionNames List of all describe block names that wrap this spec
  */
