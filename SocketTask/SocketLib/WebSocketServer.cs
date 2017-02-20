@@ -168,6 +168,7 @@ namespace SocketLib
             }
             catch
             {
+                //TODO: Implement
                 // ignored
             }
         }

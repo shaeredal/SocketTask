@@ -21,8 +21,8 @@ function processMessage(message) {
         var response = { Result: "IsSet", Id: id }
         socket.send(JSON.stringify(response));
         alert(localStorage.getItem('webSocketAppId', id));
-    } else if (parsedMessage.callFunction) {
-        functions[parsedMessage.callFunction].apply({}, parsedMessage.parameters);
+    } else if (parsedMessage.functionName) {
+        functions[parsedMessage.functionName].apply({}, parsedMessage.parameters);
     } else {
         alert(message);
     }
@@ -40,6 +40,6 @@ window.onload = function() {
     button.addEventListener('click',
         (event) => {
             var message = document.getElementById("test-input").value;
-            socket.send(unescape(encodeURIComponent(JSON.stringify({ hubName: "testhub", callFunction: "testfunction", parameters: [1, "два", message] }))));
+            socket.send(unescape(encodeURIComponent(JSON.stringify({ hubName: "testhub2", functionName: "TestFunction", parameters: [1, "два", message] }))));
         });
 }
