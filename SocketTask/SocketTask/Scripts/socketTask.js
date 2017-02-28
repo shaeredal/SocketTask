@@ -40,6 +40,6 @@ window.onload = function() {
     button.addEventListener('click',
         (event) => {
             var message = document.getElementById("test-input").value;
-            socket.send(unescape(encodeURIComponent(JSON.stringify({ hubName: "testhub2", functionName: "TestFunction", parameters: [1, "два", message] }))));
+            socket.send(unescape(encodeURIComponent(JSON.stringify({ hubName: "testHub2", functionName: "TestFunction", parameters: [1, "два", message] }))));
         });
 }

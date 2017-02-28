@@ -48,6 +48,7 @@
     <Compile Include="Models\CallFunctonModel.cs" />
     <Compile Include="Models\ClientModel.cs" />
     <Compile Include="Extensions\NetworkStreamExtensions.cs" />
+    <Compile Include="Models\HubDescriptor.cs" />
     <Compile Include="Models\MessageModel.cs" />
     <Compile Include="Models\MethodKeyModel.cs" />
     <Compile Include="Models\SetIdResponseModel.cs" />

@@ -9,14 +9,14 @@ namespace SocketLib.Models
 
         public bool Equals(MethodKeyModel other)
         {
-            return other != null && 
+            return (object)other != null && 
                 (string.Equals(Name, other.Name) && 
                 ParametersCount == other.ParametersCount);
         }
 
         public static bool operator ==(MethodKeyModel a, MethodKeyModel b)
         {
-            return a != null && a.Equals(b);
+            return (object)a != null && a.Equals(b);
         }
 
         public static bool operator !=(MethodKeyModel a, MethodKeyModel b)

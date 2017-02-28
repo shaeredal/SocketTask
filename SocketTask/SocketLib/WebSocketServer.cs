@@ -17,7 +17,7 @@ namespace SocketLib
         private static WebSocketServer instance;
 
         private Dictionary<string, ClientModel> clients;
-        private Dictionary<string, SocketHub> hubs;
+        private Dictionary<string, HubDescriptor> hubs;
 
         private TcpListener listener;
 
@@ -42,7 +42,7 @@ namespace SocketLib
         private WebSocketServer()
         {
             clients = new Dictionary<string, ClientModel>();
-            hubs = new Dictionary<string, SocketHub>();
+            hubs = new Dictionary<string, HubDescriptor>();
         }
 
         private void Start()
@@ -64,17 +64,18 @@ namespace SocketLib
             {
                 hubTypes.AddRange(assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(SocketHub))));
             }
+
             foreach (var hubType in hubTypes)
             {
-                var getInstance = hubType.GetMethod("GetInstance", BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy);
-                if (getInstance != null)
+                var name = char.ToLowerInvariant(hubType.Name[0]) + hubType.Name.Substring(1);
+                if (hubs.ContainsKey(name))
                 {
-                    if (hubs.ContainsKey(hubType.Name))
-                    {
-                        throw new Exception("Two Hubs must not share the same name");
-                    }
-                    hubs.Add(hubType.Name.ToLowerInvariant(), (SocketHub)getInstance.Invoke(null, null));
+                    throw new Exception("Two Hubs must not share the same name");
                 }
+                var methods = hubType.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                    .ToDictionary(m => new MethodKeyModel { Name = m.Name, ParametersCount = m.GetParameters().Length });
+                hubs.Add(name, new HubDescriptor { Name = name, HubType = hubType, Methods = methods});
+                //var getInstance = hubType.GetMethod("GetInstance", BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy);
             }
             //TODO: Create hubs script
         }
@@ -161,12 +162,23 @@ namespace SocketLib
             try
             {
                 var callFunctionModel = JsonConvert.DeserializeObject<CallFunctonModel>(request);
-                if (!string.IsNullOrEmpty(callFunctionModel.hubName) && hubs.ContainsKey(callFunctionModel.hubName.ToLowerInvariant()))
+                if (!string.IsNullOrEmpty(callFunctionModel.hubName) && hubs.ContainsKey(callFunctionModel.hubName))
                 {
-                    hubs[callFunctionModel.hubName].ProcessRequest(client, callFunctionModel);
+                    var hub = hubs[callFunctionModel.hubName];
+                    var key = new MethodKeyModel
+                    {
+                        Name = callFunctionModel.functionName,
+                        ParametersCount = callFunctionModel.parameters.Length
+                    };
+                    var instance = (SocketHub)Activator.CreateInstance(hub.HubType);
+                    instance.Client = client;
+                    if (hub.Methods.ContainsKey(key))
+                    {
+                        hub.Methods[key].Invoke(instance, callFunctionModel.parameters.Select(x => (object)x.ToString()).ToArray());
+                    }
                 }
             }
-            catch
+            catch(Exception e)
             {
                 //TODO: Implement
                 // ignored
