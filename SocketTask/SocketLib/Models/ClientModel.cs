@@ -1,4 +1,5 @@
-﻿using System.Net.Sockets;
+﻿using System.Collections.Generic;
+using System.Net.Sockets;
 
 namespace SocketLib.Models
 {
@@ -6,5 +7,6 @@ namespace SocketLib.Models
     {
         public string Id { get; set; }
         public TcpClient Client { get; set; } 
+        public List<string> HubNames { get; set; }
     }
 }

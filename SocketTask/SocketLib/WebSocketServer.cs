@@ -67,17 +67,23 @@ namespace SocketLib
 
             foreach (var hubType in hubTypes)
             {
-                var name = char.ToLowerInvariant(hubType.Name[0]) + hubType.Name.Substring(1);
-                if (hubs.ContainsKey(name))
-                {
-                    throw new Exception("Two Hubs must not share the same name");
-                }
-                var methods = hubType.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-                    .ToDictionary(m => new MethodKeyModel { Name = m.Name, ParametersCount = m.GetParameters().Length });
-                hubs.Add(name, new HubDescriptor { Name = name, HubType = hubType, Methods = methods});
+                var descriptor = CreateDesctiptor(hubType);
+                hubs.Add(descriptor.Name, descriptor);
                 //var getInstance = hubType.GetMethod("GetInstance", BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy);
             }
             //TODO: Create hubs script
+        }
+
+        private HubDescriptor CreateDesctiptor(Type hubType)
+        {
+            var name = char.ToLowerInvariant(hubType.Name[0]) + hubType.Name.Substring(1);
+            if (hubs.ContainsKey(name))
+            {
+                throw new Exception("Two Hubs must not share the same name");
+            }
+            var methods = hubType.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .ToDictionary(m => new MethodKeyModel { Name = m.Name, ParametersCount = m.GetParameters().Length });
+            return new HubDescriptor(hubType, name, methods);
         }
 
         private void ListenConnections()
@@ -109,8 +115,16 @@ namespace SocketLib
             var clientModel = new ClientModel
             {
                 Id = id,
-                Client = client,
+                Client = client
             };
+
+            var getHubsResponse = GetHubs(clientModel);
+            if (getHubsResponse.Error)
+            {
+                client.Close();
+                return;
+            }
+
             lock (locker)
             {
                 clients.Add(id, clientModel);
@@ -143,6 +157,42 @@ namespace SocketLib
             return false;
         }
 
+        private GetHubsModel GetHubs(ClientModel client)
+        {
+            var result = GetHubNames(client.Client);
+            if (result.Error)
+            {
+                return result;
+            }
+            result.HubNames = result.HubNames.Where(hubName => hubs.ContainsKey(hubName)).ToArray();
+            foreach (var hubName in result.HubNames)
+            {
+                //TODO: if OnConnected is realized, call it here
+                hubs[hubName].Clients.Add(client);
+            }
+            return result;
+        }
+
+        private GetHubsModel GetHubNames(TcpClient client)
+        {
+            //TODO: Make better or something
+            var jsonHubs = JsonConvert.SerializeObject(new GetHubsModel {HubNames = new string[0]});
+            client.SendMessage(jsonHubs);
+            var response = client.ReceiveMessage();
+
+            var responseObj = new GetHubsModel();
+            try
+            {
+                responseObj = JsonConvert.DeserializeObject<GetHubsModel>(response.Message);
+                return responseObj;
+            }
+            catch(Exception)
+            {
+                responseObj.Error = true;
+                return responseObj;
+            }
+        } 
+
         private void ListenClient(ClientModel client)
         {
             while (true)
@@ -170,11 +220,13 @@ namespace SocketLib
                         Name = callFunctionModel.functionName,
                         ParametersCount = callFunctionModel.parameters.Length
                     };
-                    var instance = (SocketHub)Activator.CreateInstance(hub.HubType);
-                    instance.Client = client;
+                    var hubInstance = (SocketHub)Activator.CreateInstance(hub.HubType);
+                    hubInstance.HubName = hub.Name;
+                    hubInstance.Clients = new ClientsProxy(hub.Name, hub.Clients, client);
                     if (hub.Methods.ContainsKey(key))
                     {
-                        hub.Methods[key].Invoke(instance, callFunctionModel.parameters.Select(x => (object)x.ToString()).ToArray());
+                        //TODO: Maybe make it possible to pass non-string parameters
+                        hub.Methods[key].Invoke(hubInstance, callFunctionModel.parameters.Select(x => (object)x?.ToString()).ToArray());
                     }
                 }
             }

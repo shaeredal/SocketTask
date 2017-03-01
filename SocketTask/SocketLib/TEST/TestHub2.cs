@@ -6,7 +6,7 @@ namespace SocketLib.TEST
     {
         public void TestFunction(string first, string second, string third)
         {
-            SendMessage(new object[] {first, second, third});
+            Clients.Caller.test(first, third, second);
         }
     }
 }
