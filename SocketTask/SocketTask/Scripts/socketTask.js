@@ -2,11 +2,11 @@
 var functions = {}
 
 socket.onopen = function () {
-    alert('connected');
+    //alert('connected');
 };
 
 socket.onclose = function () {
-    alert('disconnected');
+    //alert('disconnected');
 };
 
 socket.onmessage = function (event) {
@@ -21,7 +21,7 @@ function processMessage(message) {
         localStorage.setItem('webSocketAppId', id);
         var response = { Result: "IsSet", Id: id }
         socket.send(JSON.stringify(response));
-        alert(localStorage.getItem('webSocketAppId', id));
+        //alert(localStorage.getItem('webSocketAppId', id));
     //Getting hub names
     } else if (parsedMessage.HubNames) {
         var hubNames = { HubNames: ["testHub", "testHub2"] };

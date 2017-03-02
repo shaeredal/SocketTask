@@ -6,7 +6,7 @@ namespace SocketTask.TEST
     {
         public void ThisIsForReal(string message)
         {
-            Clients.Caller.write(message);
+            Clients.Other.write(message);
         }
     }
 }
